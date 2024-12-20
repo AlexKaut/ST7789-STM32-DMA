@@ -1,4 +1,5 @@
 #include "st7789.h"
+#include <stdbool.h>
 
 #ifdef USE_DMA
 #include <string.h>
@@ -11,6 +12,16 @@ uint16_t DMA_MIN_SIZE = 16;
  #define HOR_LEN 	5	//	Also mind the resolution of your screen!
 uint16_t disp_buf[ST7789_WIDTH * HOR_LEN];
 #endif
+
+void memset_16(uint16_t* buf, uint16_t value, uint32_t size) 
+{
+    uint16_t swapped = (value >> 8) | (value << 8); 
+    while (size > 0) {
+        *buf = swapped; 
+        buf++;
+        size--;
+    }
+}
 
 /**
  * @brief Write command to ST7789 controller
@@ -58,6 +69,16 @@ static void ST7789_WriteData(uint8_t *buff, size_t buff_size)
 
 	ST7789_UnSelect();
 }
+
+void SendBuffer(uint16_t *disp_buf, size_t size) 
+{
+    // Convert 16-bit data into a byte sequence
+    uint8_t *byte_ptr = (uint8_t *)disp_buf; // Cast the pointer to 8-bit
+
+    // Send data as it is
+    ST7789_WriteData(byte_ptr, size * 2); // Transmit data, size multiplied by 2
+}
+
 /**
  * @brief Write data to ST7789 controller, simplify for 8bit data.
  * data -> data to write
@@ -196,27 +217,28 @@ void ST7789_Init(void)
  * @param color -> color to Fill with
  * @return none
  */
-void ST7789_Fill_Color(uint16_t color)
-{
-	uint16_t i;
-	ST7789_SetAddressWindow(0, 0, ST7789_WIDTH - 1, ST7789_HEIGHT - 1);
-	ST7789_Select();
+void ST7789_Fill_Color(uint16_t color) {
+    uint16_t i;
+    ST7789_SetAddressWindow(0, 0, ST7789_WIDTH - 1, ST7789_HEIGHT - 1);
+    ST7789_Select();
 
-	#ifdef USE_DMA
-		for (i = 0; i < ST7789_HEIGHT / HOR_LEN; i++)
-		{
-			memset(disp_buf, color, sizeof(disp_buf));
-			ST7789_WriteData(disp_buf, sizeof(disp_buf));
-		}
-	#else
-		uint16_t j;
-		for (i = 0; i < ST7789_WIDTH; i++)
-				for (j = 0; j < ST7789_HEIGHT; j++) {
-					uint8_t data[] = {color >> 8, color & 0xFF};
-					ST7789_WriteData(data, sizeof(data));
-				}
-	#endif
-	ST7789_UnSelect();
+    #ifdef USE_DMA
+
+    for (i = 0; i < (ST7789_HEIGHT * ST7789_WIDTH) / (sizeof(disp_buf) / 2); i++) {
+        memset_16((uint16_t*)disp_buf, color, sizeof(disp_buf) / 2); 
+        SendBuffer((uint16_t*)disp_buf, sizeof(disp_buf) / 2);     
+    }
+    #else
+    uint16_t j;
+    for (i = 0; i < ST7789_HEIGHT; i++) {
+        for (j = 0; j < ST7789_WIDTH; j++) {
+            uint8_t data[] = {color >> 8, color & 0xFF}; 
+            ST7789_WriteData(data, sizeof(data));
+        }
+    }
+    #endif
+
+    ST7789_UnSelect();
 }
 
 /**
@@ -351,6 +373,7 @@ void ST7789_DrawRectangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, ui
 	ST7789_DrawLine(x2, y1, x2, y2, color);
 	ST7789_UnSelect();
 }
+
 
 /** 
  * @brief Draw a circle with single color
@@ -667,7 +690,6 @@ void ST7789_TearEffect(uint8_t tear)
 	ST7789_UnSelect();
 }
 
-
 /** 
  * @brief A Simple test function for ST7789
  * @param  none
@@ -710,32 +732,32 @@ void ST7789_Test(void)
 	ST7789_WriteString(10, 100, "Hello Steve!", Font_16x26, MAGENTA, WHITE);
 	HAL_Delay(1000);
 
-	ST7789_Fill_Color(RED);
+	ST7789_Fill_Color(BLACK);
 	ST7789_WriteString(10, 10, "Rect./Line.", Font_11x18, YELLOW, BLACK);
 	ST7789_DrawRectangle(30, 30, 100, 100, WHITE);
 	HAL_Delay(1000);
 
-	ST7789_Fill_Color(RED);
+	ST7789_Fill_Color(BLACK);
 	ST7789_WriteString(10, 10, "Filled Rect.", Font_11x18, YELLOW, BLACK);
 	ST7789_DrawFilledRectangle(30, 30, 50, 50, WHITE);
 	HAL_Delay(1000);
 
-	ST7789_Fill_Color(RED);
+	ST7789_Fill_Color(BLACK);
 	ST7789_WriteString(10, 10, "Circle.", Font_11x18, YELLOW, BLACK);
 	ST7789_DrawCircle(60, 60, 25, WHITE);
 	HAL_Delay(1000);
 
-	ST7789_Fill_Color(RED);
+	ST7789_Fill_Color(BLACK);
 	ST7789_WriteString(10, 10, "Filled Cir.", Font_11x18, YELLOW, BLACK);
 	ST7789_DrawFilledCircle(60, 60, 25, WHITE);
 	HAL_Delay(1000);
 
-	ST7789_Fill_Color(RED);
+	ST7789_Fill_Color(BLACK);
 	ST7789_WriteString(10, 10, "Triangle", Font_11x18, YELLOW, BLACK);
 	ST7789_DrawTriangle(30, 30, 30, 70, 60, 40, WHITE);
 	HAL_Delay(1000);
 
-	ST7789_Fill_Color(RED);
+	ST7789_Fill_Color(BLACK);
 	ST7789_WriteString(10, 10, "Filled Tri", Font_11x18, YELLOW, BLACK);
 	ST7789_DrawFilledTriangle(30, 30, 30, 70, 60, 40, WHITE);
 	HAL_Delay(1000);
@@ -744,4 +766,267 @@ void ST7789_Test(void)
 	ST7789_Fill_Color(WHITE);
 	ST7789_DrawImage(0, 0, 128, 128, (uint16_t *)saber);
 	HAL_Delay(3000);
+}
+
+/** 
+ * @brief Function to check colors 
+ * @param  none
+ * @return  none
+ */
+void ST7789_TestColors(void) 
+{
+    ST7789_Fill_Color(RED); 
+	ST7789_WriteString(100, 100, "RED", Font_16x26, WHITE, BLACK);
+    HAL_Delay(1000);
+
+    ST7789_Fill_Color(GREEN); 
+	ST7789_WriteString(85, 100, "GREEN", Font_16x26, WHITE, BLACK);
+    HAL_Delay(1000);
+
+    ST7789_Fill_Color(BLUE); 
+	ST7789_WriteString(90, 100, "BLUE", Font_16x26, WHITE, BLACK);
+    HAL_Delay(1000);
+}
+
+/* Fast drawing with DMA */
+
+/**
+ * @brief Draw a fast vertical line using DMA
+ * @param x -> X-coordinate of the starting point
+ * @param y -> Y-coordinate of the line
+ * @param w -> Width of the line
+ * @param color -> Color of the line
+ * @return none
+ */
+void ST7789_DrawFastVLine(uint16_t x, uint16_t y, uint16_t h, uint16_t color) 
+{
+    if ((x >= ST7789_WIDTH) || (y >= ST7789_HEIGHT)) return;
+
+    uint16_t adjusted_height = (y + h > ST7789_HEIGHT) ? (ST7789_HEIGHT - y) : h;
+
+    ST7789_SetAddressWindow(x, y, x, y + adjusted_height - 1);
+
+#ifdef USE_DMA
+    memset_16((uint16_t*)disp_buf, color, sizeof(disp_buf) / 2); // Размер в элементах
+    SendBuffer((uint16_t*)disp_buf, sizeof(disp_buf) / 2);      // Размер в 16-битных словах
+#else
+
+    for (uint16_t i = 0; i < adjusted_height; i++) {
+        uint8_t data[] = { color >> 8, color & 0xFF };
+        ST7789_WriteData(data, sizeof(data));
+    }
+#endif
+}
+
+/**
+ * @brief Draw fast a horizontal line using DMA
+ * @param x -> X-coordinate of the starting point
+ * @param y -> Y-coordinate of the line
+ * @param w -> Width of the line
+ * @param color -> Color of the line
+ * @return none
+ */
+void ST7789_DrawFastHLine(uint16_t x, uint16_t y, uint16_t w, uint16_t color) 
+{
+    if ((x >= ST7789_WIDTH) || (y >= ST7789_HEIGHT)) return;
+
+    uint16_t adjusted_width = (x + w > ST7789_WIDTH) ? (ST7789_WIDTH - x) : w;
+
+    ST7789_SetAddressWindow(x, y, x + adjusted_width - 1, y);
+
+#ifdef USE_DMA
+     memset_16((uint16_t*)disp_buf, color, sizeof(disp_buf) / 2); 
+    SendBuffer((uint16_t*)disp_buf, sizeof(disp_buf) / 2);     
+#else
+
+    for (uint16_t i = 0; i < adjusted_width; i++) {
+        uint8_t data[] = { color >> 8, color & 0xFF };
+        ST7789_WriteData(data, sizeof(data));
+    }
+#endif
+}
+
+
+/**
+ * @brief Draw fast a Rectangle with single color
+ * @param xi&yi -> 2 coordinates of 2 top points.
+ * @param color -> color of the Rectangle line
+ * @return none
+ */
+void ST7789_DrawFastFilledRectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color) 
+{
+    /* Validate input */
+    if (x >= ST7789_WIDTH || y >= ST7789_HEIGHT) {
+        return; // Out of bounds, exit
+    }
+
+    /* Correct width and height if rectangle overflows */
+    if ((x + w) > ST7789_WIDTH) {
+        w = ST7789_WIDTH - x;
+    }
+    if ((y + h) > ST7789_HEIGHT) {
+        h = ST7789_HEIGHT - y;
+    }
+
+    /* Set the window area */
+    ST7789_SetAddressWindow(x, y, x + w - 1, y + h - 1);
+    ST7789_Select();
+
+    #ifdef USE_DMA
+    /* Fill the rectangle using DMA */
+    uint32_t total_pixels = w * h;
+    uint32_t buffer_size = sizeof(disp_buf) / 2; // Buffer size in 16-bit pixels
+
+    for (uint32_t i = 0; i < total_pixels / buffer_size; i++) {
+        memset_16((uint16_t*)disp_buf, color, buffer_size); // Fill buffer with color
+        SendBuffer((uint16_t*)disp_buf, buffer_size);       // Send filled buffer
+    }
+
+    /* Handle the remainder if total_pixels is not a multiple of buffer_size */
+    uint32_t remaining_pixels = total_pixels % buffer_size;
+    if (remaining_pixels > 0) {
+        memset_16((uint16_t*)disp_buf, color, remaining_pixels);
+        SendBuffer((uint16_t*)disp_buf, remaining_pixels);
+    }
+
+    #else
+    /* CPU-based rectangle filling */
+    for (uint16_t i = 0; i < h; i++) {
+        for (uint16_t j = 0; j < w; j++) {
+            uint8_t data[] = {color >> 8, color & 0xFF};
+            ST7789_WriteData(data, sizeof(data));
+        }
+    }
+    #endif
+
+    ST7789_UnSelect();
+}
+
+#define SWAP(a, b) do { int16_t temp = a; a = b; b = temp; } while (0)
+
+void ST7789_DrawFastFilledTriangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color) 
+{
+    // Sort the vertices by their y-coordinates (y1 <= y2 <= y3)
+    if (y1 > y2) { SWAP(x1, x2); SWAP(y1, y2); }
+    if (y2 > y3) { SWAP(x2, x3); SWAP(y2, y3); }
+    if (y1 > y2) { SWAP(x1, x2); SWAP(y1, y2); }
+
+    ST7789_Select();
+
+    uint16_t total_height = y3 - y1;
+
+    // Iterate over the vertical range of the triangle
+    for (uint16_t y = y1; y <= y3; y++) {
+        // Check whether the current scanline belongs to the lower or upper segment of the triangle
+        bool is_lower = y > y2 || y2 == y1;
+        uint16_t segment_height = is_lower ? (y3 - y2) : (y2 - y1);
+
+        // Compute the horizontal interpolation progress for the edges
+        float alpha = (float)(y - y1) / total_height; // Progress along the entire height
+        float beta = (float)(y - (is_lower ? y2 : y1)) / segment_height; // Progress within the segment
+
+        // Calculate the horizontal boundaries for the current scanline
+        int16_t A = x1 + (x3 - x1) * alpha;
+        int16_t B = is_lower ? x2 + (x3 - x2) * beta : x1 + (x2 - x1) * beta;
+
+        // Ensure A is to the left of B
+        if (A > B) SWAP(A, B);
+
+        // Draw the horizontal line using DMA
+        ST7789_DrawFastHLine(A, y, B - A + 1, color);
+    }
+
+    ST7789_UnSelect();
+}
+
+/** 
+ * @brief Draw Fast a Filled circle with single color
+ * @param x0&y0 -> coordinate of circle center
+ * @param r -> radius of circle
+ * @param color -> color of circle
+ * @return  none
+ */
+void ST7789_DrawFastFilledCircle(int16_t x0, int16_t y0, int16_t r, uint16_t color) 
+{
+    ST7789_Select();
+    int16_t f = 1 - r;
+    int16_t ddF_x = 1;
+    int16_t ddF_y = -2 * r;
+    int16_t x = 0;
+    int16_t y = r;
+
+    ST7789_DrawFastHLine(x0 - r, y0, 2 * r + 1, color);
+
+    while (x < y) {
+        if (f >= 0) {
+            y--;
+            ddF_y += 2;
+            f += ddF_y;
+        }
+        x++;
+        ddF_x += 2;
+        f += ddF_x;
+
+        ST7789_DrawFastHLine(x0 - x, y0 + y, 2 * x + 1, color); 
+        ST7789_DrawFastHLine(x0 - x, y0 - y, 2 * x + 1, color); 
+
+        ST7789_DrawFastHLine(x0 - y, y0 + x, 2 * y + 1, color); 
+        ST7789_DrawFastHLine(x0 - y, y0 - x, 2 * y + 1, color); 
+    }
+
+    ST7789_UnSelect();
+}
+
+static void ST7789_PrepareCharBuffer(char c, FontDef font, uint16_t color, uint16_t bgcolor, uint16_t char_buf[font.height][font.width]) 
+{
+    uint32_t b;
+    for (uint16_t i = 0; i < font.height; i++) {
+        b = font.data[(c - 32) * font.height + i];
+        for (uint16_t j = 0; j < font.width; j++) {
+            if ((b << j) & 0x8000) {
+                char_buf[i][j] = color; // Foreground color
+            } else {
+                char_buf[i][j] = bgcolor; // Background color
+            }
+        }
+    }
+}
+
+/** 
+ * @brief Write fast a string 
+ * @param  x&y -> cursor of the start point.
+ * @param str -> string to write
+ * @param font -> fontstyle of the string
+ * @param color -> color of the string
+ * @param bgcolor -> background color of the string
+ * @return  none
+ */
+void ST7789_WriteFastString(uint16_t x, uint16_t y, const char *str, FontDef font, uint16_t color, uint16_t bgcolor) 
+{
+    uint16_t char_buf[font.height][font.width]; 
+    ST7789_Select();
+
+    while (*str) {
+        if (x + font.width >= ST7789_WIDTH) {
+            x = 0;
+            y += font.height;
+            if (y + font.height >= ST7789_HEIGHT) {
+                break;
+            }
+
+            if (*str == ' ') {
+                // Skip spaces in the beginning of the new line
+                str++;
+                continue;
+            }
+        }
+
+        ST7789_PrepareCharBuffer(*str, font, color, bgcolor, char_buf);
+        ST7789_SetAddressWindow(x, y, x + font.width - 1, y + font.height - 1);
+        SendBuffer((uint16_t *)char_buf, font.width * font.height);
+
+        x += font.width;
+        str++;
+    }
+    ST7789_UnSelect();
 }
