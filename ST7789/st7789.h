@@ -12,7 +12,7 @@ extern SPI_HandleTypeDef ST7789_SPI_PORT;
 #define USE_DMA
 
 /* If u need CS control, comment below*/
-//#define CFG_NO_CS
+#define CFG_NO_CS
 
 /* Pin connection*/
 #define ST7789_RST_PORT ST7789_RST_GPIO_Port
@@ -21,8 +21,8 @@ extern SPI_HandleTypeDef ST7789_SPI_PORT;
 #define ST7789_DC_PIN   ST7789_DC_Pin
 
 #ifndef CFG_NO_CS
-#define ST7789_CS_PORT  ST7789_CS_GPIO_Port
-#define ST7789_CS_PIN   ST7789_CS_Pin
+//#define ST7789_CS_PORT  ST7789_CS_GPIO_Port
+//#define ST7789_CS_PIN   ST7789_CS_Pin
 #endif
 
 /* If u need Backlight control, uncomment below */
@@ -258,6 +258,18 @@ void ST7789_TearEffect(uint8_t tear);
 
 /* Simple test function. */
 void ST7789_Test(void);
+void ST7789_TestColors(void);
+void ST7789_WriteDataDMA(uint8_t *buff, size_t buff_size);
+
+/* Fast drawing with DMA */
+void ST7789_DrawFastHLine(uint16_t x, uint16_t y, uint16_t w, uint16_t color);
+void ST7789_DrawFastVLine(uint16_t x, uint16_t y, uint16_t h, uint16_t color);
+
+void ST7789_DrawFastFilledRectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color);
+void ST7789_DrawFastFilledTriangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color);
+void ST7789_DrawFastFilledCircle(int16_t x0, int16_t y0, int16_t r, uint16_t color);
+
+void ST7789_WriteFastString(uint16_t x, uint16_t y, const char *str, FontDef font, uint16_t color, uint16_t bgcolor);
 
 #ifndef ST7789_ROTATION
     #error You should at least choose a display rotation!
