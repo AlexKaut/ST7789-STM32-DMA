@@ -26,8 +26,8 @@ extern SPI_HandleTypeDef ST7789_SPI_PORT;
 #endif
 
 /* If u need Backlight control, uncomment below */
-//#define BLK_PORT
-//#define BLK_PIN
+#define BLK_PORT
+#define BLK_PIN
 
 
 /*
@@ -210,7 +210,7 @@ extern SPI_HandleTypeDef ST7789_SPI_PORT;
 
 /* Advanced options */
 #define ST7789_COLOR_MODE_16bit 0x55    //  RGB565 (16bit)
-#define ST7789_COLOR_MODE_18bit 0x66    //  RGB666 (18bit)
+#define ST7789_COLOR_MODE_18bit 0x66    //  RGB666 (18bit)  // Will not work correctly with this lib
 
 /* Basic operations */
 #define ST7789_RST_Clr() HAL_GPIO_WritePin(ST7789_RST_PORT, ST7789_RST_PIN, GPIO_PIN_RESET)
